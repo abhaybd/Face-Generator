@@ -1,3 +1,5 @@
+# This combines the images processed by preprocess.py and combine them into a singly numpy array
+
 import os
 from PIL import Image
 import numpy as np
