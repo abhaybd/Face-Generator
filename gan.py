@@ -1,9 +1,9 @@
 from keras.models import Model
-from keras.layers import Dense, Reshape, Input, Conv2D, MaxPooling2D, GlobalAveragePooling2D
-from keras.optimizers import Adam
-from keras.callbacks import TensorBoard
+from keras.layers import Dense, Reshape, Input, Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dropout
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
+from keras.optimizers import Adam
+from keras.callbacks import TensorBoard
 import numpy as np
 import tensorflow as tf
 from datetime import datetime
@@ -20,6 +20,7 @@ def build_discriminator():
       x = Conv2D(128, kernel_size=(3,3))(x)
       x = LeakyReLU(alpha=0.2)(x)
       x = MaxPooling2D()(x)
+      x = Dropout(rate=0.2)(x)
       x = Conv2D(256, kernel_size=(3,3))(x)
       x = LeakyReLU(alpha=0.2)(x)
       x = Conv2D(256, kernel_size=(3,3))(x)
@@ -32,12 +33,16 @@ def build_discriminator():
 
 def build_generator():
       noise = Input(shape=noise_shape)
-      x = Dense(256, activation='relu', input_shape=noise_shape)(noise)
+      x = Dropout(rate=0.2)(noise)
+      x = Dense(256, activation='relu', input_shape=noise_shape)(x)
       x = BatchNormalization(momentum=0.8)(x)
+      x = Dropout(rate=0.2)(x)
       x = Dense(512, activation='relu')(x)
       x = BatchNormalization(momentum=0.8)(x)
+      x = Dropout(rate=0.2)(x)
       x = Dense(1024, activation='relu')(x)
       x = BatchNormalization(momentum=0.8)(x)
+      x = Dropout(rate=0.2)(x)
       x = Dense(image_width * image_height, activation='sigmoid')(x)
       x = Reshape((image_height, image_width, 1))(x)
       return Model(noise, x)
@@ -137,15 +142,15 @@ for epoch in range(epochs):
       avg_d_acc = np.average([loss[2] for loss in losses])
       # If this is the best loss so far, save the models
       if avg_g_loss < best_g_loss:
-            generator.save_weights('checkpoints/g_epoch{:04d}_{}.h5'.format(epoch, date))
-            discriminator.save_weights('checkpoints/d_epoch{:04d}_{}.h5'.format(epoch, date))
-            combined.save_weights('checkpoints/c_epoch{:04d}_{}.h5'.format(epoch, date))
+            generator.save('checkpoints/g_epoch{:04d}_{}.h5'.format(epoch, date))
+            discriminator.save('checkpoints/d_epoch{:04d}_{}.h5'.format(epoch, date))
+            combined.save('checkpoints/c_epoch{:04d}_{}.h5'.format(epoch, date))
       # Write log to TensorBoard
       write_log(callback, train_names, [avg_g_loss, avg_d_loss, avg_d_acc], epoch)
       # Print to console
       print('\rEpoch: {: 5d} [G loss: {: 10.6f}] [D loss: {: 10.6f} acc.: {: 10.2f}%]'.format(epoch, avg_g_loss, avg_d_loss, avg_d_acc), end='')
 
 # Save models
-generator.save_weights('generator.h5')
-discriminator.save_weights('discriminator.h5')
-combined.save_weights('combined.h5')
+generator.save('generator.h5')
+discriminator.save('discriminator.h5')
+combined.save('combined.h5')
