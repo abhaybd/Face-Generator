@@ -18,7 +18,6 @@ def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=
                         img_name = img_name[img_name.rfind(os.sep)+1:]
                   img_name = os.path.join(dest_folder, img_name)
                   img.save(img_name)
-                  os.remove(folder)
       else:
             files = os.listdir(folder)
             for file in files:
@@ -29,7 +28,7 @@ def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=
                           to_ending=to_ending)
 
 process('resources\\raw\\CroppedYale',
-        'resources\\processed\\all',
-        target_shape=(28,28),
+        'resources\\processed\\big',
+        target_shape=(64,64),
         from_ending='.pgm',
         to_ending='.png')

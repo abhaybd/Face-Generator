@@ -10,11 +10,11 @@ from datetime import datetime
 import os
 import math
 
-image_width, image_height = 28, 28
-noise_shape = (100,)
+image_shape = (64,64,1)
+noise_shape = (300,)
 
 def build_discriminator():
-      image = Input(shape=(image_height, image_width, 1))
+      image = Input(shape=image_shape)
       x = Conv2D(128, kernel_size=(3,3))(image)
       x = LeakyReLU(alpha=0.2)(x)
       x = Conv2D(128, kernel_size=(3,3))(x)
@@ -26,6 +26,13 @@ def build_discriminator():
       x = Conv2D(256, kernel_size=(3,3))(x)
       x = LeakyReLU(alpha=0.2)(x)
       x = MaxPooling2D()(x)
+      x = Dropout(rate=0.2)(x)
+      x = Conv2D(512, kernel_size=(3,3))(x)
+      x = LeakyReLU(alpha=0.2)(x)
+      x = Conv2D(512, kernel_size=(3,3))(x)
+      x = LeakyReLU(alpha=0.2)(x)
+      x = MaxPooling2D()(x)
+      x = Dropout(rate=0.2)(x)
       x = GlobalAveragePooling2D()(x)
       x = Dense(1, activation='sigmoid')(x)
       discriminator = Model(inputs=image, outputs=x)
@@ -34,17 +41,23 @@ def build_discriminator():
 def build_generator():
       noise = Input(shape=noise_shape)
       x = Dropout(rate=0.2)(noise)
-      x = Dense(256, activation='relu', input_shape=noise_shape)(x)
-      x = BatchNormalization(momentum=0.8)(x)
-      x = Dropout(rate=0.2)(x)
-      x = Dense(512, activation='relu')(x)
+      x = Dense(512, activation='relu', input_shape=noise_shape)(x)
       x = BatchNormalization(momentum=0.8)(x)
       x = Dropout(rate=0.2)(x)
       x = Dense(1024, activation='relu')(x)
       x = BatchNormalization(momentum=0.8)(x)
       x = Dropout(rate=0.2)(x)
-      x = Dense(image_width * image_height, activation='sigmoid')(x)
-      x = Reshape((image_height, image_width, 1))(x)
+      x = Dense(2048, activation='relu')(x)
+      x = BatchNormalization(momentum=0.8)(x)
+      x = Dropout(rate=0.2)(x)
+      x = Dense(4096, activation='relu')(x)
+      x = BatchNormalization(momentum=0.8)(x)
+      x = Dropout(rate=0.2)(x)
+      x = Dense(5000, activation='relu')(x)
+      x = BatchNormalization(momentum=0.8)(x)
+      x = Dropout(rate=0.2)(x)
+      x = Dense(np.prod(image_shape), activation='sigmoid')(x)
+      x = Reshape(image_shape)(x)
       return Model(noise, x)
 
 # Build and compile discriminator and generator
@@ -56,7 +69,7 @@ discriminator.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=[
 generator = build_generator()
 generator.compile(optimizer=optimizer, loss='binary_crossentropy')
 
-# Set the discriminator to not trainable, so the combined model only trainst the generator
+# Set the discriminator to not trainable, so the combined model only trains the generator
 # It will still train with train_on_batch
 discriminator.trainable = False
 
@@ -72,7 +85,7 @@ combined = Model(noise_input, validity)
 combined.compile(optimizer=optimizer, loss='binary_crossentropy')
 
 # Load image dataset and rescale between 0 and 1
-x_train = np.load('dataset.npy')
+x_train = np.load('dataset_big.npy')
 x_train = x_train.astype(np.float32)/255
 
 # Make checkpoint directory if not already there
@@ -90,7 +103,8 @@ def write_log(callback, names, logs, epoch):
         callback.writer.flush()
 
 # Set number of epochs, batch size, and calculate half batch
-epochs = 1000
+epochs = 500
+start = 1000
 batch_size=32
 half_batch = batch_size//2
 
@@ -103,7 +117,7 @@ train_names = ['g_loss', 'd_loss', 'd_acc']
 # Initial loss is infinity so any subsequent loss will be better.
 best_g_loss = math.inf
 
-for epoch in range(epochs):
+for epoch in range(start,start+epochs):
       losses = []
       for i in range(x_train.shape[0]//batch_size):
             # Train discriminator
@@ -141,7 +155,8 @@ for epoch in range(epochs):
       avg_d_loss = np.average([loss[1] for loss in losses])
       avg_d_acc = np.average([loss[2] for loss in losses])
       # If this is the best loss so far, save the models
-      if avg_g_loss < best_g_loss:
+      if avg_g_loss <= best_g_loss:
+            best_g_loss = avg_g_loss
             generator.save('checkpoints/g_epoch{:04d}_{}.h5'.format(epoch, date))
             discriminator.save('checkpoints/d_epoch{:04d}_{}.h5'.format(epoch, date))
             combined.save('checkpoints/c_epoch{:04d}_{}.h5'.format(epoch, date))
