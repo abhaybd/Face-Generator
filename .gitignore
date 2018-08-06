@@ -3,6 +3,7 @@ logs/*
 checkpoints/*
 *.h5
 *.npy
+generated_images/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

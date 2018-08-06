@@ -3,32 +3,42 @@
 import os
 from PIL import Image
 
-def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=None):
+def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=None,grayscale=False):
       if dest_folder.startswith(folder):
             raise ValueError('dest_folder cannot be a subfolder of folder!')
-      if not os.path.isdir(folder):
-            if from_ending is None or folder[folder.rfind('.'):] == from_ending:
-                  img = Image.open(folder)
-                  if target_shape is not None:
-                        img = img.resize(target_shape)
-                  img_name = folder
-                  if to_ending is not None:
-                        img_name = img_name[img_name.rfind(os.sep)+1:img_name.rfind('.')] + to_ending
-                  else:
-                        img_name = img_name[img_name.rfind(os.sep)+1:]
-                  img_name = os.path.join(dest_folder, img_name)
-                  img.save(img_name)
-      else:
+      if os.path.isfile(folder):
+            try:
+                  if from_ending is None or folder.endswith(from_ending):
+                        img = Image.open(folder)
+                        if target_shape is not None:
+                              img = img.resize(target_shape)
+                        if grayscale:
+                              img = img.convert('L')
+                        if to_ending is not None:
+                              ending = to_ending
+                        else:
+                              ending = folder[folder.rfind('.'):]
+                        num_processed = len(os.listdir(dest_folder))
+                        img_name = str(num_processed) + ending
+                        img_name = os.path.join(dest_folder, img_name)
+                        img.save(img_name)
+            except Exception as e:
+                  print('Failed for file %s: %s' % (folder, str(e)))
+      elif os.path.isdir(folder):
             files = os.listdir(folder)
             for file in files:
                   process(os.path.join(folder,file),
                           dest_folder,
                           target_shape=target_shape,
                           from_ending=from_ending,
-                          to_ending=to_ending)
+                          to_ending=to_ending,
+                          grayscale=grayscale)
+      else:
+            print('ERROR: %s does not exist!' % folder)
 
-process('resources\\raw\\CroppedYale',
-        'resources\\processed\\big',
+process(r'resources\essex images\raw',
+        r'resources\essex images\processed',
         target_shape=(64,64),
-        from_ending='.pgm',
-        to_ending='.png')
+        from_ending='.jpg',
+        to_ending='.png',
+        grayscale=True)

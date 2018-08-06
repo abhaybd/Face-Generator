@@ -9,6 +9,7 @@ import tensorflow as tf
 from datetime import datetime
 import os
 import math
+from PIL import Image
 
 image_shape = (64,64,1)
 noise_shape = (300,)
@@ -85,12 +86,16 @@ combined = Model(noise_input, validity)
 combined.compile(optimizer=optimizer, loss='binary_crossentropy')
 
 # Load image dataset and rescale between 0 and 1
-x_train = np.load('dataset_big.npy')
+x_train = np.load('dataset.npy')
 x_train = x_train.astype(np.float32)/255
 
 # Make checkpoint directory if not already there
 if not os.path.isdir('checkpoints'):
       os.mkdir('checkpoints')
+
+# Make image directory
+if not os.path.isdir('generated_images'):
+      os.mkdir('generated_images')
 
 def write_log(callback, names, logs, epoch):
       """Write stats to TensorBoard"""
@@ -103,8 +108,8 @@ def write_log(callback, names, logs, epoch):
         callback.writer.flush()
 
 # Set number of epochs, batch size, and calculate half batch
-epochs = 500
-start = 1000
+epochs = 1000
+start = 0
 batch_size=32
 half_batch = batch_size//2
 
@@ -113,6 +118,9 @@ date = datetime.today().strftime('%m-%d_%H%M')
 callback = TensorBoard(os.path.join('logs',date))
 callback.set_model(combined)
 train_names = ['g_loss', 'd_loss', 'd_acc']
+
+write_image_period = 20 # Write images every 50 epochs
+num_images_to_write = 4 # Generate these many. MUST BE <= half_batch
 
 # Initial loss is infinity so any subsequent loss will be better.
 best_g_loss = math.inf
@@ -129,6 +137,12 @@ for epoch in range(start,start+epochs):
             # Generate random invalid images
             noises = np.random.normal(0, 1, (half_batch, *noise_shape))
             generated_images = generator.predict(noises)
+            
+            if epoch % write_image_period == 0:
+                  for i,img in enumerate(generated_images[:num_images_to_write]):
+                        image = img*255
+                        image = Image.fromarray(np.round(image.squeeze()).astype(np.uint8))
+                        image.save('generated_images/epoch%03d_%d.png'%(epoch,i))
             
             # Train on each half batch
             # Valid images' ground truth is ones
@@ -166,6 +180,6 @@ for epoch in range(start,start+epochs):
       print('\rEpoch: {: 5d} [G loss: {: 10.6f}] [D loss: {: 10.6f} acc.: {: 10.2f}%]'.format(epoch, avg_g_loss, avg_d_loss, avg_d_acc), end='')
 
 # Save models
-generator.save('generator.h5')
-discriminator.save('discriminator.h5')
-combined.save('combined.h5')
+generator.save('generator_%s.h5' % date)
+discriminator.save('discriminator_%s.h5' % date)
+combined.save('combined_%s.h5' % date)
