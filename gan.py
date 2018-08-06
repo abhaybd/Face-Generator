@@ -1,6 +1,5 @@
-from keras.models import Model
-from keras.layers import Dense, Reshape, Input, Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dropout
-from keras.layers.advanced_activations import LeakyReLU
+from keras.models import Model, Sequential
+from keras.layers import Dense, Reshape, Input, Conv2D, MaxPooling2D, Dropout, Flatten
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
@@ -15,60 +14,56 @@ image_shape = (64,64,1)
 noise_shape = (300,)
 
 def build_discriminator():
-      image = Input(shape=image_shape)
-      x = Conv2D(128, kernel_size=(3,3))(image)
-      x = LeakyReLU(alpha=0.2)(x)
-      x = Conv2D(128, kernel_size=(3,3))(x)
-      x = LeakyReLU(alpha=0.2)(x)
-      x = MaxPooling2D()(x)
-      x = Dropout(rate=0.2)(x)
-      x = Conv2D(256, kernel_size=(3,3))(x)
-      x = LeakyReLU(alpha=0.2)(x)
-      x = Conv2D(256, kernel_size=(3,3))(x)
-      x = LeakyReLU(alpha=0.2)(x)
-      x = MaxPooling2D()(x)
-      x = Dropout(rate=0.2)(x)
-      x = Conv2D(512, kernel_size=(3,3))(x)
-      x = LeakyReLU(alpha=0.2)(x)
-      x = Conv2D(512, kernel_size=(3,3))(x)
-      x = LeakyReLU(alpha=0.2)(x)
-      x = MaxPooling2D()(x)
-      x = Dropout(rate=0.2)(x)
-      x = GlobalAveragePooling2D()(x)
-      x = Dense(1, activation='sigmoid')(x)
-      discriminator = Model(inputs=image, outputs=x)
+      discriminator = Sequential()
+      
+      discriminator.add(Conv2D(128, kernel_size=(3,3), activation='relu', input_shape=image_shape))
+      discriminator.add(Conv2D(128, kernel_size=(3,3), activation='relu'))
+      discriminator.add(MaxPooling2D())
+      discriminator.add(Dropout(rate=0.1))
+      
+      discriminator.add(Conv2D(256, kernel_size=(3,3), activation='relu'))
+      discriminator.add(Conv2D(256, kernel_size=(3,3), activation='relu'))
+      discriminator.add(MaxPooling2D())
+      discriminator.add(Dropout(rate=0.1))
+      
+      discriminator.add(Conv2D(512, kernel_size=(3,3), activation='relu'))
+      discriminator.add(Conv2D(512, kernel_size=(3,3), activation='relu'))
+      discriminator.add(MaxPooling2D())
+      discriminator.add(Dropout(rate=0.1))
+      
+      discriminator.add(Flatten())
+      discriminator.add(Dropout(rate=0.3))
+      discriminator.add(Dense(1, activation='sigmoid'))
       return discriminator
 
 def build_generator():
-      noise = Input(shape=noise_shape)
-      x = Dropout(rate=0.2)(noise)
-      x = Dense(512, activation='relu', input_shape=noise_shape)(x)
-      x = BatchNormalization(momentum=0.8)(x)
-      x = Dropout(rate=0.2)(x)
-      x = Dense(1024, activation='relu')(x)
-      x = BatchNormalization(momentum=0.8)(x)
-      x = Dropout(rate=0.2)(x)
-      x = Dense(2048, activation='relu')(x)
-      x = BatchNormalization(momentum=0.8)(x)
-      x = Dropout(rate=0.2)(x)
-      x = Dense(4096, activation='relu')(x)
-      x = BatchNormalization(momentum=0.8)(x)
-      x = Dropout(rate=0.2)(x)
-      x = Dense(5000, activation='relu')(x)
-      x = BatchNormalization(momentum=0.8)(x)
-      x = Dropout(rate=0.2)(x)
-      x = Dense(np.prod(image_shape), activation='sigmoid')(x)
-      x = Reshape(image_shape)(x)
-      return Model(noise, x)
+      generator = Sequential()
+      generator.add(Dense(512, activation='relu', input_shape=noise_shape))
+      generator.add(BatchNormalization(momentum=0.8))
+      generator.add(Dropout(rate=0.2))
+      
+      generator.add(Dense(1024, activation='relu'))
+      generator.add(BatchNormalization(momentum=0.8))
+      generator.add(Dropout(rate=0.1))
+      
+      generator.add(Dense(2048, activation='relu'))
+      generator.add(BatchNormalization(momentum=0.8))
+      
+      generator.add(Dense(4096, activation='relu'))
+      generator.add(BatchNormalization(momentum=0.8))
+      
+      generator.add(Dense(np.prod(image_shape), activation='sigmoid'))
+      generator.add(Reshape(image_shape))
+      return generator
 
 # Build and compile discriminator and generator
-optimizer = Adam(0.00002)
+g_optimizer = Adam(0.001)
+d_optimizer = Adam(0.001)
 
 discriminator = build_discriminator()
-discriminator.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+discriminator.compile(optimizer=d_optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
 generator = build_generator()
-generator.compile(optimizer=optimizer, loss='binary_crossentropy')
 
 # Set the discriminator to not trainable, so the combined model only trains the generator
 # It will still train with train_on_batch
@@ -81,21 +76,22 @@ generated_image = generator(noise_input)
 # The descriminator takes the image and outputs the validity (is it authentic or faked?)
 validity = discriminator(generated_image)
 
-# Build and compile a combined model, with the discriminator stack on top of the generator
+# Build and compile a combined model, with the discriminator stacked on top of the generator
 combined = Model(noise_input, validity)
-combined.compile(optimizer=optimizer, loss='binary_crossentropy')
+combined.compile(optimizer=g_optimizer, loss='binary_crossentropy')
 
-# Load image dataset and rescale between 0 and 1
+def rescale(data, min_num, max_num, data_min=None, data_max=None):
+      if data_min is None:
+            data_min = np.min(data)
+      if data_max is None:
+            data_max = np.max(data)
+      data_range = data_max - data_min
+      data = ((data - data_min) / data_range) * (max_num - min_num) + min_num
+      return data
+
+# Load image dataset and normalize (change to range [0,255])
 x_train = np.load('dataset.npy')
-x_train = x_train.astype(np.float32)/255
-
-# Make checkpoint directory if not already there
-if not os.path.isdir('checkpoints'):
-      os.mkdir('checkpoints')
-
-# Make image directory
-if not os.path.isdir('generated_images'):
-      os.mkdir('generated_images')
+x_train = rescale(x_train, 0, 1)
 
 def write_log(callback, names, logs, epoch):
       """Write stats to TensorBoard"""
@@ -108,7 +104,7 @@ def write_log(callback, names, logs, epoch):
         callback.writer.flush()
 
 # Set number of epochs, batch size, and calculate half batch
-epochs = 1000
+epochs = 500
 start = 0
 batch_size=32
 half_batch = batch_size//2
@@ -119,7 +115,15 @@ callback = TensorBoard(os.path.join('logs',date))
 callback.set_model(combined)
 train_names = ['g_loss', 'd_loss', 'd_acc']
 
-write_image_period = 20 # Write images every 50 epochs
+# Make checkpoint directory if not already there
+if not os.path.isdir('checkpoints/%s' % date):
+      os.makedirs('checkpoints/%s' % date)
+
+# Make image directory
+if not os.path.isdir('generated_images/%s' % date):
+      os.makedirs('generated_images/%s' % date)
+
+write_image_period = 20 # Write images every 20 epochs
 num_images_to_write = 4 # Generate these many. MUST BE <= half_batch
 
 # Initial loss is infinity so any subsequent loss will be better.
@@ -127,7 +131,7 @@ best_g_loss = math.inf
 
 for epoch in range(start,start+epochs):
       losses = []
-      for i in range(x_train.shape[0]//batch_size):
+      for _ in range(x_train.shape[0]//batch_size):
             # Train discriminator
             
             # Get random valid images
@@ -140,9 +144,9 @@ for epoch in range(start,start+epochs):
             
             if epoch % write_image_period == 0:
                   for i,img in enumerate(generated_images[:num_images_to_write]):
-                        image = img*255
-                        image = Image.fromarray(np.round(image.squeeze()).astype(np.uint8))
-                        image.save('generated_images/epoch%03d_%d.png'%(epoch,i))
+                        image = rescale(img.squeeze(), 0, 255)
+                        image = Image.fromarray(np.round(image).astype(np.uint8))
+                        image.save('generated_images/%s/epoch%03d_%d.png'%(date,epoch,i))
             
             # Train on each half batch
             # Valid images' ground truth is ones
@@ -169,11 +173,11 @@ for epoch in range(start,start+epochs):
       avg_d_loss = np.average([loss[1] for loss in losses])
       avg_d_acc = np.average([loss[2] for loss in losses])
       # If this is the best loss so far, save the models
-      if avg_g_loss <= best_g_loss:
+      if avg_g_loss < best_g_loss:
             best_g_loss = avg_g_loss
-            generator.save('checkpoints/g_epoch{:04d}_{}.h5'.format(epoch, date))
-            discriminator.save('checkpoints/d_epoch{:04d}_{}.h5'.format(epoch, date))
-            combined.save('checkpoints/c_epoch{:04d}_{}.h5'.format(epoch, date))
+            generator.save('checkpoints/{}/g_epoch{:04d}.h5'.format(date, epoch))
+            discriminator.save('checkpoints/{}/d_epoch{:04d}.h5'.format(date, epoch))
+            combined.save('checkpoints/{}/c_epoch{:04d}.h5'.format(date, epoch))
       # Write log to TensorBoard
       write_log(callback, train_names, [avg_g_loss, avg_d_loss, avg_d_acc], epoch)
       # Print to console
