@@ -1,5 +1,5 @@
 from keras.models import Model, Sequential
-from keras.layers import Dense, Reshape, Input, Conv2D, MaxPooling2D, Dropout, Flatten
+from keras.layers import Dense, Reshape, Input, Conv2D, MaxPooling2D, Dropout, Activation, GlobalAveragePooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
@@ -11,7 +11,7 @@ import math
 from PIL import Image
 
 image_shape = (64,64,1)
-noise_shape = (300,)
+noise_shape = (400,)
 
 def build_discriminator():
       discriminator = Sequential()
@@ -31,26 +31,28 @@ def build_discriminator():
       discriminator.add(MaxPooling2D())
       discriminator.add(Dropout(rate=0.1))
       
-      discriminator.add(Flatten())
-      discriminator.add(Dropout(rate=0.3))
+      discriminator.add(GlobalAveragePooling2D())
+      discriminator.add(Dropout(rate=0.1))
       discriminator.add(Dense(1, activation='sigmoid'))
       return discriminator
 
 def build_generator():
       generator = Sequential()
-      generator.add(Dense(512, activation='relu', input_shape=noise_shape))
+      generator.add(Dense(512, input_shape=noise_shape))
       generator.add(BatchNormalization(momentum=0.8))
-      generator.add(Dropout(rate=0.2))
+      generator.add(Activation('relu'))
       
-      generator.add(Dense(1024, activation='relu'))
+      generator.add(Dense(1024))
       generator.add(BatchNormalization(momentum=0.8))
-      generator.add(Dropout(rate=0.1))
+      generator.add(Activation('relu'))
       
-      generator.add(Dense(2048, activation='relu'))
+      generator.add(Dense(2048))
       generator.add(BatchNormalization(momentum=0.8))
+      generator.add(Activation('relu'))
       
-      generator.add(Dense(4096, activation='relu'))
+      generator.add(Dense(4096))
       generator.add(BatchNormalization(momentum=0.8))
+      generator.add(Activation('relu'))
       
       generator.add(Dense(np.prod(image_shape), activation='sigmoid'))
       generator.add(Reshape(image_shape))
@@ -58,7 +60,7 @@ def build_generator():
 
 # Build and compile discriminator and generator
 g_optimizer = Adam(0.001)
-d_optimizer = Adam(0.001)
+d_optimizer = Adam(0.0001)
 
 discriminator = build_discriminator()
 discriminator.compile(optimizer=d_optimizer, loss='binary_crossentropy', metrics=['accuracy'])
@@ -149,21 +151,19 @@ for epoch in range(start,start+epochs):
                         image.save('generated_images/%s/epoch%03d_%d.png'%(date,epoch,i))
             
             # Train on each half batch
-            # Valid images' ground truth is ones
-            discriminator_loss_real = discriminator.train_on_batch(images, np.ones((half_batch,1)))
             # Invalid images' ground truth is zeros
             discriminator_loss_fake = discriminator.train_on_batch(generated_images, np.zeros((half_batch,1)))
+            # Valid images' ground truth is ones
+            discriminator_loss_real = discriminator.train_on_batch(images, np.ones((half_batch,1)))
             discriminator_loss = 0.5 * np.add(discriminator_loss_real, discriminator_loss_fake)
             
             # Train generator
             
-            # Generate random noise
+            # Create noise to generate images
             noises = np.random.normal(0, 1, (batch_size, *noise_shape))
-            # Target output from discriminator is ones (valid)
-            y = np.ones((batch_size,1))
             
             # Train using the combined model, since the error relies on the discriminator
-            generator_loss = combined.train_on_batch(noises, y)
+            generator_loss = combined.train_on_batch(noises, np.ones((batch_size, 1)))
             
             # Multiply the accuracy to get percent then add to list of losses
             discriminator_loss[1] *= 100
