@@ -36,9 +36,9 @@ def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=
       else:
             print('ERROR: %s does not exist!' % folder)
 
-process(r'resources\essex images\raw',
-        r'resources\essex images\processed',
-        target_shape=(64,64),
+process(r'resources\CelebA\raw',
+        r'resources\CelebA\processed',
+        target_shape=(28,28),
         from_ending='.jpg',
         to_ending='.png',
         grayscale=True)

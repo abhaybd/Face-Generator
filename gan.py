@@ -4,11 +4,13 @@ from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
 import numpy as np
-import tensorflow as tf
 from datetime import datetime
 import os
 import math
 from PIL import Image
+from utils import rescale, write_log
+
+np.random.seed(42)
 
 image_shape = (64,64,1)
 noise_shape = (400,)
@@ -82,28 +84,10 @@ validity = discriminator(generated_image)
 combined = Model(noise_input, validity)
 combined.compile(optimizer=g_optimizer, loss='binary_crossentropy')
 
-def rescale(data, min_num, max_num, data_min=None, data_max=None):
-      if data_min is None:
-            data_min = np.min(data)
-      if data_max is None:
-            data_max = np.max(data)
-      data_range = data_max - data_min
-      data = ((data - data_min) / data_range) * (max_num - min_num) + min_num
-      return data
-
 # Load image dataset and normalize (change to range [0,255])
 x_train = np.load('dataset.npy')
 x_train = rescale(x_train, 0, 1)
-
-def write_log(callback, names, logs, epoch):
-      """Write stats to TensorBoard"""
-      for name, value in zip(names, logs):
-        summary = tf.Summary()
-        summary_value = summary.value.add()
-        summary_value.simple_value = value
-        summary_value.tag = name
-        callback.writer.add_summary(summary, epoch)
-        callback.writer.flush()
+x_train = np.random.shuffle(x_train)
 
 # Set number of epochs, batch size, and calculate half batch
 epochs = 500
@@ -111,9 +95,12 @@ start = 0
 batch_size=32
 half_batch = batch_size//2
 
+if not os.path.isdir('logs/facev1'):
+      os.makedirs('logs/facev1')
+
 # Init TensorBoard callback
 date = datetime.today().strftime('%m-%d_%H%M')
-callback = TensorBoard(os.path.join('logs',date))
+callback = TensorBoard(os.path.join('logs/facev1',date))
 callback.set_model(combined)
 train_names = ['g_loss', 'd_loss', 'd_acc']
 
@@ -133,11 +120,11 @@ best_g_loss = math.inf
 
 for epoch in range(start,start+epochs):
       losses = []
-      for _ in range(x_train.shape[0]//batch_size):
+      for batch_index in range(0, x_train.shape[0], batch_size):
             # Train discriminator
             
             # Get random valid images
-            image_indexes = np.random.randint(0, x_train.shape[0], half_batch)
+            image_indexes = np.random.randint(batch_index, batch_index+batch_size, half_batch)
             images = x_train[image_indexes]
             
             # Generate random invalid images
