@@ -122,7 +122,7 @@ def get_batch(batch_size, path=DATASET_PATH):
       all_images = os.listdir(path)
       image_indexes = np.random.randint(0, len(all_images), batch_size)
       images = np.array([np.expand_dims(np.array(Image.open(all_images[i])),axis=2) for i in image_indexes])
-      return rescale(images.astype(np.float32), -0.5, 0.5, data_min=0, data_max=255)
+      return rescale(images.astype(np.float32), -1, 1, data_min=0, data_max=255)
 
 for epoch in range(epochs):
       losses = []
@@ -133,12 +133,12 @@ for epoch in range(epochs):
             images = get_batch(half_batch)
             
             # Generate random invalid images
-            noises = np.random.normal(0, 1, (half_batch, *noise_shape))
+            noises = np.random.uniform(-1, 1, size=(half_batch, *noise_shape))
             generated_images = generator.predict(noises)
             
             if epoch % write_image_period == 0:
                   for i,img in enumerate(generated_images[:num_images_to_write]):
-                        image = rescale(img.squeeze(), 0, 255, data_min=-0.5, data_max=0.5)
+                        image = rescale(img.squeeze(), 0, 255, data_min=-1, data_max=1)
                         image = Image.fromarray(np.round(image).astype(np.uint8))
                         image.save('generated_images/%s/epoch%03d_%d.png'%(date,epoch,i))
             
@@ -152,7 +152,7 @@ for epoch in range(epochs):
             # Train generator
             
             # Create noise to generate images
-            noises = np.random.normal(0, 1, (batch_size, *noise_shape))
+            noises = np.random.uniform(-1, 1, size=(batch_size, *noise_shape))
             
             # Train using the combined model, since the error relies on the discriminator
             generator_loss = combined.train_on_batch(noises, np.ones((batch_size, 1)))
