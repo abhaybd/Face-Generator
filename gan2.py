@@ -12,6 +12,7 @@ import math
 import numpy as np
 from PIL import Image
 from utils import rescale, write_log
+from tqdm import tqdm
 
 image_shape = (28,28,1)
 noise_shape = (100,)
@@ -87,8 +88,7 @@ combined = Model(noise_input, validity)
 combined.compile(optimizer=g_optimizer, loss='binary_crossentropy')
 
 # Set number of epochs, batch size, and calculate half batch
-epochs = 10
-start = 0
+epochs = 100
 batch_size=32
 half_batch = batch_size//2
 
@@ -115,18 +115,18 @@ num_images_to_write = 10 # Generate these many. MUST BE <= half_batch
 # Initial loss is infinity so any subsequent loss will be better.
 best_g_loss = math.inf
 
-DATASET_PATH = 'resoruces/CelebA/processed'
-num_images = len([img for img in os.listdir(DATASET_PATH) if img.endswith('.png')])
+DATASET_PATH = 'resources/CelebA/processed'
+all_images = os.listdir(DATASET_PATH)
+num_images = len([img for img in all_images if img.endswith('.png')])
 
-def get_batch(batch_size, path=DATASET_PATH):
-      all_images = os.listdir(path)
+def get_batch(batch_size):
       image_indexes = np.random.randint(0, len(all_images), batch_size)
-      images = np.array([np.expand_dims(np.array(Image.open(all_images[i])),axis=2) for i in image_indexes])
+      images = np.array([np.expand_dims(np.array(Image.open(os.path.join(DATASET_PATH,all_images[i]))),axis=2) for i in image_indexes])
       return rescale(images.astype(np.float32), -1, 1, data_min=0, data_max=255)
 
 for epoch in range(epochs):
       losses = []
-      for _ in range(num_images // batch_size):
+      for _ in tqdm(range(num_images // batch_size)):
             # Train discriminator
             
             # Get random valid images
@@ -135,12 +135,6 @@ for epoch in range(epochs):
             # Generate random invalid images
             noises = np.random.uniform(-1, 1, size=(half_batch, *noise_shape))
             generated_images = generator.predict(noises)
-            
-            if epoch % write_image_period == 0:
-                  for i,img in enumerate(generated_images[:num_images_to_write]):
-                        image = rescale(img.squeeze(), 0, 255, data_min=-1, data_max=1)
-                        image = Image.fromarray(np.round(image).astype(np.uint8))
-                        image.save('generated_images/%s/epoch%03d_%d.png'%(date,epoch,i))
             
             # Train on each half batch
             # Invalid images' ground truth is zeros
@@ -162,13 +156,24 @@ for epoch in range(epochs):
       # Calculate various losses and accuracies
       avg_g_loss = np.average([loss[0] for loss in losses])
       avg_d_loss = np.average([loss[1] for loss in losses])
-      # If this is the best loss so far, save the models
-      if avg_g_loss < best_g_loss:
-            best_g_loss = avg_g_loss
+      
+      noises = np.random.uniform(-1, 1, size=(half_batch, *noise_shape))
+      generated_images = generator.predict(noises)
+      
+      if epoch % write_image_period == 0:
+            for i,img in enumerate(generated_images[:num_images_to_write]):
+                  image = rescale(img.squeeze(), 0, 255, data_min=-1, data_max=1)
+                  image = Image.fromarray(np.round(image).astype(np.uint8))
+                  image.save('generated_images/facev2/%s/epoch%03d_%d.png'%(date,epoch,i))
+      
+      try:
             generator.save('checkpoints/facev2/{}/g_epoch{:04d}.h5'.format(date, epoch))
             discriminator.save('checkpoints/facev2/{}/d_epoch{:04d}.h5'.format(date, epoch))
-            combined.save('checkpoints/{}/facev2/c_epoch{:04d}.h5'.format(date, epoch))
+            combined.save('checkpoints/facev2/{}/c_epoch{:04d}.h5'.format(date, epoch))
+            best_g_loss = avg_g_loss
+      except:
+            pass
       # Write log to TensorBoard
       write_log(callback, train_names, [avg_g_loss, avg_d_loss], epoch)
       # Print to console
-      print('\rEpoch: {: 5d} [G loss: {: 10.6f}] [D loss: {: 10.6f}]'.format(epoch, avg_g_loss, avg_d_loss), end='')
+      print('Epoch: {: 5d} [G loss: {: 10.6f}] [D loss: {: 10.6f}]'.format(epoch, avg_g_loss, avg_d_loss))
