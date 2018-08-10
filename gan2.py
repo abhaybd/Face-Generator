@@ -14,7 +14,7 @@ from PIL import Image
 from utils import rescale, write_log
 from tqdm import tqdm
 
-image_shape = (28,28,1)
+image_shape = (64,64,1)
 noise_shape = (100,)
 
 
@@ -40,6 +40,11 @@ def build_discriminator():
       discriminator.add(LeakyReLU(alpha=0.01))
       discriminator.add(Dropout(0.5))
       
+      discriminator.add(Conv2D(1024, kernel_size=3, strides=2, padding='same'))
+      discriminator.add(BatchNormalization())
+      discriminator.add(LeakyReLU(alpha=0.01))
+      discriminator.add(Dropout(0.5))
+      
       discriminator.add(Flatten())
       discriminator.add(Dense(1))
       discriminator.add(Activation('sigmoid'))
@@ -47,8 +52,8 @@ def build_discriminator():
 
 def build_generator():
       generator = Sequential()
-      generator.add(Dense(7*7*512, input_shape=noise_shape))
-      generator.add(Reshape((7,7,512)))
+      generator.add(Dense(8*8*512, input_shape=noise_shape))
+      generator.add(Reshape((8,8,512)))
       generator.add(BatchNormalization())
       generator.add(LeakyReLU(alpha=0.01))
       
@@ -60,7 +65,7 @@ def build_generator():
       generator.add(BatchNormalization())
       generator.add(LeakyReLU(alpha=0.01))
       
-      generator.add(Conv2DTranspose(64, kernel_size=3, strides=1, padding='same'))
+      generator.add(Conv2DTranspose(64, kernel_size=3, strides=2, padding='same'))
       generator.add(BatchNormalization())
       generator.add(LeakyReLU(alpha=0.01))
       
@@ -115,7 +120,7 @@ num_images_to_write = 10 # Generate these many. MUST BE <= half_batch
 # Initial loss is infinity so any subsequent loss will be better.
 best_g_loss = math.inf
 
-DATASET_PATH = 'resources/CelebA/processed'
+DATASET_PATH = 'resources/CelebA/processed-64'
 all_images = os.listdir(DATASET_PATH)
 num_images = len([img for img in all_images if img.endswith('.png')])
 
