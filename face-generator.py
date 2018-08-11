@@ -14,9 +14,10 @@ from PIL import Image
 from utils import rescale, write_log
 from tqdm import tqdm
 
+np.random.seed(42)
+
 image_shape = (64,64,1)
 noise_shape = (100,)
-
 
 def build_discriminator():
       discriminator = Sequential()
