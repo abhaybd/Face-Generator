@@ -174,7 +174,6 @@ for epoch in range(epochs):
       try:
             generator.save('checkpoints/facev2/{}/g_epoch{:04d}.h5'.format(date, epoch))
             discriminator.save('checkpoints/facev2/{}/d_epoch{:04d}.h5'.format(date, epoch))
-            combined.save('checkpoints/facev2/{}/c_epoch{:04d}.h5'.format(date, epoch))
             best_g_loss = avg_g_loss
       except:
             pass
