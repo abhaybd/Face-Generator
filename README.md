@@ -9,8 +9,9 @@ This is an example of generative adversarial networks used to generate images of
 
 ### Examples of generated face:
 
-![Generated face](generated_face1.png)
-![Generated face](generated_face2.png)
-![Generated face](generated_face3.png)
+![Generated face1](generated_face1.png)
+![Generated face2](generated_face2.png)
+![Generated face3](generated_face3.png)
+![Generated face4](generated_face4.png)
 
 This model was trained using the [CelebA](https://www.kaggle.com/jessicali9530/celeba-dataset) dataset, rescaled to 64x64, and converted to grayscale.
