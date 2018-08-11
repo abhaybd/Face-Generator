@@ -2,6 +2,7 @@
 
 import os
 from PIL import Image
+from tqdm import tqdm
 
 def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=None,grayscale=False):
       if dest_folder.startswith(folder):
@@ -26,7 +27,7 @@ def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=
                   print('Failed for file %s: %s' % (folder, str(e)))
       elif os.path.isdir(folder):
             files = os.listdir(folder)
-            for file in files:
+            for file in tqdm(files):
                   process(os.path.join(folder,file),
                           dest_folder,
                           target_shape=target_shape,
@@ -37,8 +38,8 @@ def process(folder, dest_folder, target_shape=None, from_ending=None, to_ending=
             print('ERROR: %s does not exist!' % folder)
 
 process(r'resources\CelebA\raw',
-        r'resources\CelebA\processed',
-        target_shape=(28,28),
+        r'resources\CelebA\processed-64',
+        target_shape=(64,64),
         from_ending='.jpg',
         to_ending='.png',
         grayscale=True)

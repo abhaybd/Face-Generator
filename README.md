@@ -1,14 +1,16 @@
 # Face-Generator
 
-Uses generative adversarial neural networks to generate images of faces. It doesn't really have any practicial application, I just wanted to see if I could do it. It actually kind of works. The images it generates kind of look like faces.
+This is an example of generative adversarial networks used to generate images of faces. It trained on more than 200,000 images of faces, learning to create new ones. I'm still experimenting with them model architecture, but the results look somewhat decent.
 
-Example of real face:
+### Example of real face:
 
 ![Real face](real_face.png)
 
 
-Example of generated face:
+### Examples of generated face:
 
-![Generated face](generated_face.png)
+![Generated face](generated_face1.png)
+![Generated face](generated_face2.png)
+![Generated face](generated_face3.png)
 
-The dataset is obtained from [the Extended Yale Face Database B.](http://vision.ucsd.edu/content/extended-yale-face-database-b-b)
+This model was trained using the [CelebA](https://www.kaggle.com/jessicali9530/celeba-dataset) dataset, rescaled to 64x64, and converted to grayscale.
