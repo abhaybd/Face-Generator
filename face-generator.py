@@ -53,8 +53,12 @@ def build_discriminator():
 
 def build_generator():
       generator = Sequential()
-      generator.add(Dense(8*8*512, input_shape=noise_shape))
-      generator.add(Reshape((8,8,512)))
+      generator.add(Dense(8*8*1024, input_shape=noise_shape))
+      generator.add(Reshape((8,8,1024)))
+      generator.add(BatchNormalization())
+      generator.add(LeakyReLU(alpha=0.01))
+      
+      generator.add(Conv2DTranspose(512, kernel_size=3, strides=2, padding='same'))
       generator.add(BatchNormalization())
       generator.add(LeakyReLU(alpha=0.01))
       
@@ -66,7 +70,7 @@ def build_generator():
       generator.add(BatchNormalization())
       generator.add(LeakyReLU(alpha=0.01))
       
-      generator.add(Conv2DTranspose(64, kernel_size=3, strides=2, padding='same'))
+      generator.add(Conv2DTranspose(64, kernel_size=3, strides=1, padding='same'))
       generator.add(BatchNormalization())
       generator.add(LeakyReLU(alpha=0.01))
       
